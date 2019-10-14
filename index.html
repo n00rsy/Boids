@@ -1,0 +1,179 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Hello World</title>
+</head>
+  <script src="pixi/pixi.min.js"></script>
+  
+<body>
+  <script type="text/javascript">
+    
+    let Application = PIXI.Application,
+    loader = PIXI.loader,
+    resources = PIXI.loader.resources,
+    Sprite = PIXI.Sprite;
+
+    let app = new Application({ 
+    width: 256, 
+    height: 256,                       
+    antialias: true, 
+    transparent: false, 
+    resolution: 1
+  }
+);
+    app.renderer.backgroundColor = 0xf6ffbd;
+    app.renderer.view.style.position = "absolute";
+    app.renderer.view.style.display = "block";
+    app.renderer.autoResize = true;
+    app.renderer.resize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(app.view);
+
+
+loader
+  .add("images/boid.png")
+  .load(setup);
+
+  let boids = [];
+
+  let boundForce = 1.1;
+  let VelocityMatchScale = 2;
+  let steerAwayScale = 55;
+  let steerCenterScale = 60;
+  let maxSpeed = 8;
+  let boundLimit = 50;
+  let noiseScale = 32;
+
+
+function setup() {
+    
+
+  app.ticker.add(delta => gameLoop(delta));
+}
+
+function gameLoop(delta){
+
+    boids.forEach(function(boid) {
+    moveBoid(boid);
+});
+}
+
+function moveBoid(boid){
+    var vSteerAway = [0.0,0.0];
+    var vVelocityMatch = [0.0,0.0];
+    var vSteerCenter = [0.0,0.0];
+
+    var count=0;
+    boids.forEach(function(otherBoid) {
+    if(boid!=otherBoid){
+        if(calculateDistance(boid.x,boid.y,otherBoid.x,otherBoid.y)<boid.visualField){
+            count++;
+            
+            vSteerAway[0] = vSteerAway[0]-(otherBoid.x-boid.x);
+            vSteerAway[1] = vSteerAway[1]-(otherBoid.y-boid.y);
+        
+            vVelocityMatch[0]+=otherBoid.vx;
+            vVelocityMatch[1]+=otherBoid.vy;
+
+            vSteerCenter[0] +=otherBoid.x;
+            vSteerCenter[1] +=otherBoid.y;
+        }
+    }
+});
+
+if(count!=0){
+
+vVelocityMatch[0]=((vVelocityMatch[0]/count)-boid.vx)/VelocityMatchScale;
+vVelocityMatch[1]=((vVelocityMatch[1]/count)-boid.vy)/VelocityMatchScale;
+
+//console.log("1vSteerCenter:1 " + vSteerCenter[0]+"  "+vSteerCenter[1]);
+//console.log("pos: "+boid.x+"  "+boid.y);
+vSteerCenter[0] = ((vSteerCenter[0]/count)-boid.x)/steerCenterScale;
+vSteerCenter[1] = ((vSteerCenter[1]/count)-boid.y)/steerCenterScale;
+
+vSteerAway[0]/=steerAwayScale;
+vSteerAway[1]/=steerAwayScale;
+}
+
+
+//console.log("vSteerCenter: " + vSteerCenter[0]+"  "+vSteerCenter[1]);
+//console.log("vSteerAway: " + vSteerAway[0]+"  "+vSteerAway[1]);
+//console.log("vVelocityMatch: " + vVelocityMatch[0]+"  "+vVelocityMatch[1]);
+
+vBound = boundPosition(boid);
+
+//var randX = (Math.random() * 2 - 1)/noiseScale;
+//var randY = (Math.random() * 2 - 1)/noiseScale;
+
+boid.vx = boundSpeed(boid.vx+vSteerCenter[0] + vSteerAway[0]+vVelocityMatch[0]+vBound[0]);
+boid.vy = boundSpeed(boid.vy+vSteerCenter[1] + vSteerAway[1]+vVelocityMatch[1]+vBound[1]);
+
+
+
+console.log("vx: "+boid.vx+" vy: "+boid.vy);
+//var nextPos = [boid.x+boid.vx, boid.y+boid.vy];
+boid.x+=boid.vx;
+boid.y+=boid.vy;
+boid.rotation = Math.atan(boid.vy/boid.vx);
+
+}
+
+function boundSpeed(v){
+    if(v>maxSpeed){
+        v=maxSpeed;
+    }
+    if(v<-maxSpeed){
+        v=-maxSpeed;
+    }
+    return v;
+}
+
+function boundPosition(boid){
+var v = [0,0];
+if(boid.x<boundLimit){
+    v[0]=boundForce;
+}
+else if(boid.x>window.innerWidth-boundLimit){
+    v[0]=-boundForce;
+}
+
+if(boid.y<boundLimit){
+    v[1]=boundForce;
+}
+else if(boid.y>window.innerHeight-boundLimit){
+    v[1]=-boundForce;
+}
+return v;
+}
+
+function calculateDistance(x1,y1,x2,y2){
+    return Math.pow((x2-x1),2)+Math.pow((y2-y1),2);
+}
+
+function random(min, max) {
+  return Math.random() * (max - min + 1) + min;
+}
+
+app.renderer.plugins.interaction.on('pointerup', onClick);
+function onClick (event) {
+    console.log(event.data.global.x);
+    console.log(event.data.global.y);
+    addBoid(event.data.global.x,event.data.global.y);
+}
+
+function addBoid(x,y){
+    var boid = new Sprite(resources["images/boid.png"].texture);
+    app.stage.addChild(boid);
+    boid.x=x;
+    boid.y=y;
+    boid.vx = random(-5,5);
+    boid.vy = random(-5,5);
+    boid.visualField = random(10000,20000);
+    boid.scale.set(0.2, 0.2);
+    boid.anchor.set(0.5,0.5);
+    
+    boids.push(boid);
+}
+  </script>
+</body>
+</html>
